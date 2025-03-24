@@ -1,5 +1,7 @@
-
 using System.Collections.Concurrent;
+
+
+namespace Aslanta.Idgen.Api;
 
 public interface IIdgenService
 {
@@ -39,10 +41,12 @@ public class IdCache
     private async Task ReloadCacheAsync()
     {
         // TODO:
-        // Load and delete the previously genereted ids in database
+        // Load and delete the previously generated ids in database
         for (int i = 0; i < 10; i++)
         {
-            _ids.Add(Guid.NewGuid().ToString());
+            // Generate a short ID by taking the first 7 characters of a GUID
+            string shortId = Guid.NewGuid().ToString("N").Substring(0, 7);
+            _ids.Add(shortId);
         }
 
         await Task.CompletedTask; // TODO: Implement

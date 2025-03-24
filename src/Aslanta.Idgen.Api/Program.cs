@@ -1,3 +1,6 @@
+
+using Aslanta.Idgen.Api;
+
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddSingleton<IdCache>();
