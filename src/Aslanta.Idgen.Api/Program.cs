@@ -1,13 +1,12 @@
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddSingleton<IdCache>();
-builder.Services.AddSingleton<IIdgenService, IdgenService>();
 
 var app = builder.Build();
 
-app.MapGet("/", async (IIdgenService service) => new
+app.MapGet("/", async (IdCache cache) => new
 {
-    Id = await service.GetId().ConfigureAwait(false)
+    Id = await cache.GetId().ConfigureAwait(false)
 });
 
 app.Run();
