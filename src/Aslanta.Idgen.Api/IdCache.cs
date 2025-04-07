@@ -1,13 +1,22 @@
 
 using System.Collections.Concurrent;
-using System.Data.Common;
-using System.Security.Cryptography;
-using Npgsql;
+
+namespace Aslanta.Idgen.Api;
 
 public class IdCache
 {
-    private readonly ReaderWriterLockSlim _readerWriterLock = new();
+    // We can adjust this value to change the number of IDs we want to cache.
+    // Note that the Ids in the cache are lost when the application is restarted
+    // since they were already deleted from the database.
+    private const int CacheSize = 200;
+    private readonly ICacheRepository _cacheRepository;
+    private readonly SemaphoreSlim _semaphore = new(1, 1);
     private readonly ConcurrentBag<string> _shortIds = new();
+
+    public IdCache(ICacheRepository cacheRepository)
+    {
+        _cacheRepository = cacheRepository;
+    }
 
     public async ValueTask<string> GetId()
     {
@@ -22,7 +31,7 @@ public class IdCache
 
     private async Task ReloadCacheAsync()
     {
-        _readerWriterLock.EnterWriteLock();
+        await _semaphore.WaitAsync().ConfigureAwait(false);
         try
         {
             if (_shortIds.Count > 0)
@@ -30,55 +39,15 @@ public class IdCache
                 return;
             }
 
-            const int cacheSize = 10; // TODO: Change to 200.
-            for (int i = 0; i < cacheSize; i++)
+            List<string> ids = await _cacheRepository.GetIds(CacheSize).ConfigureAwait(false);
+            foreach (string id in ids)
             {
-                _shortIds.Add(ShortIdGenerator.GenerateId());
+                _shortIds.Add(id);
             }
-
-            await Task.CompletedTask;
-
-            // string connectionString = ""; // TODO: Add connection string.
-            // using var connection = new NpgsqlConnection(connectionString);
-            // connection.Open();
-
-            // string sql = $@"
-            // DELETE FROM ShortIds
-            // WHERE Id IN (
-            //     SELECT Id FROM ShortIds
-            //     ORDER BY Id
-            //     LIMIT 200
-            // )
-            // RETURNING ShortId;";
-
-            // using var cmd = new NpgsqlCommand(sql, connection);
-            // using DbDataReader reader = await cmd.ExecuteReaderAsync();
-            // while (await reader.ReadAsync())
-            // {
-            //     _shortIds.Add(reader.GetString(0));
-            // }
         }
         finally
         {
-            _readerWriterLock.ExitWriteLock();
-        }
-    }
-
-    // TODO: delete this method when the SQL code is uncommented.
-    static class ShortIdGenerator
-    {
-        private static readonly char[] chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789".ToCharArray();
-        private const int IdLength = 6;
-
-        public static string GenerateId()
-        {
-            char[] id = new char[IdLength];
-            for (int i = 0; i < IdLength; i++)
-            {
-                int index = RandomNumberGenerator.GetInt32(0, chars.Length);
-                id[i] = chars[index];
-            }
-            return new string(id);
+            _semaphore.Release();
         }
     }
 }
