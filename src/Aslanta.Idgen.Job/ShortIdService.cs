@@ -5,22 +5,26 @@ namespace Aslanta.Idgen.Job;
 
 internal static class ShortIdService
 {
+    private const int BatchCount = 500;
+    private const int NewIdsCount = 100000;
+    private const int MinIdCount = 10000;
+
     public static void GenerateId()
     {
-        const int batchCount = 500;
-        int rowsCount = 100000;
+        int availableIdCount = AvailableIdCount();
+        if (availableIdCount > MinIdCount)
+        {
+            Console.WriteLine($"There are {availableIdCount} ids already in the database.");
+            return;
+        }
 
+        int rowsCount = NewIdsCount;
         while (rowsCount > 0)
         {
-            HashSet<string> batch = GenerateIds(batchCount);
-            if (batch.Count == rowsCount)
-            {
-                continue;
-            }
-
+            HashSet<string> batch = GenerateIds(BatchCount);
             int savedIds = SaveIds(batch);
             rowsCount -= batch.Count;
-            // TODO: log progress
+            Console.WriteLine($"Saved {savedIds} ids. Remaining: {rowsCount}");
         }
     }
 
@@ -46,8 +50,7 @@ internal static class ShortIdService
             }
 
             string sql = sb.ToString();
-            string connectionString = ""; // TODO: Add connection string
-            using var connection = new NpgsqlConnection(connectionString);
+            using var connection = new NpgsqlConnection(Config.ConnectionString);
             connection.Open();
 
             using NpgsqlTransaction transaction = connection.BeginTransaction();
@@ -82,8 +85,7 @@ internal static class ShortIdService
 
     private static HashSet<string> AvailableIds(HashSet<string> memoryIds)
     {
-        string connectionString = ""; // TODO: Add connection string
-        using var connection = new NpgsqlConnection(connectionString);
+        using var connection = new NpgsqlConnection(Config.ConnectionString);
         connection.Open();
 
         using NpgsqlTransaction transaction = connection.BeginTransaction();
@@ -108,6 +110,15 @@ internal static class ShortIdService
         return availableIds;
     }
 
+    private static int AvailableIdCount()
+    {
+        using var connection = new NpgsqlConnection(Config.ConnectionString);
+        connection.Open();
+        using var cmd = new NpgsqlCommand("SELECT COUNT(*) FROM ShortIds", connection);
+        using NpgsqlDataReader reader = cmd.ExecuteReader();
+        return reader.Read() ? reader.GetInt32(0) : 0;
+    }
+
     private static HashSet<string> GenerateIdsInMemory(int count)
     {
         HashSet<string> ids = new();
@@ -115,6 +126,7 @@ internal static class ShortIdService
         {
             ids.Add(ShortIdGenerator.GenerateId());
         }
+
         return ids;
     }
 }
