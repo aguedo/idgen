@@ -7,7 +7,19 @@ Config.ConnectionString = GetConnectionString(builder.Configuration);
 builder.Services.AddSingleton<ICacheRepository, CacheRepository>();
 builder.Services.AddSingleton<IdCache>();
 
+builder.Services.AddCors(options =>
+{
+    options.AddDefaultPolicy(policy =>
+    {
+        policy.AllowAnyOrigin()
+               .AllowAnyMethod()
+               .AllowAnyHeader();
+    });
+});
+
 var app = builder.Build();
+
+app.UseCors();
 
 app.MapGet("/", async (IdCache cache) => new
 {
