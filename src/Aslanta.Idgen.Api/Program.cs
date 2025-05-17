@@ -1,4 +1,5 @@
 using Aslanta.Idgen.Api;
+using Microsoft.AspNetCore.Diagnostics;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -19,11 +20,37 @@ builder.Services.AddCors(options =>
 
 var app = builder.Build();
 
+if (app.Environment.IsDevelopment())
+{
+    app.UseDeveloperExceptionPage();
+}
+else
+{
+    app.UseExceptionHandler("/error");
+}
+
 app.UseCors();
 
-app.MapGet("/", async (IdCache cache) => new
+app.MapGet("/", async (IdCache cache) =>
 {
-    Id = await cache.GetId().ConfigureAwait(false)
+    return new
+    {
+        Id = await cache.GetId().ConfigureAwait(false)
+    };
+});
+
+app.MapGet("/error", (HttpContext context, ILogger<Program> logger) =>
+{
+    IExceptionHandlerFeature? exception = context.Features.Get<IExceptionHandlerFeature>();
+
+    if (exception != null)
+    {
+        Exception error = exception.Error;
+        logger.LogError(error, "An unhandled exception occurred: {Message}", error.Message);
+    }
+
+    context.Response.StatusCode = 500;
+    return Results.Problem("An error occurred while processing your request.");
 });
 
 app.Run();
