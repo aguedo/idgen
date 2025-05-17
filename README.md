@@ -25,7 +25,7 @@ Response:
 }
 ```
 
-Feel free to use it in your demo apps, prototypes, or internal tools.
+Feel free to use it in your demo apps, prototypes, or internal tools. There is limit of 200 requests per minute, reach out if you need more :rocket:
 
 ## How it works
 
